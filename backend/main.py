@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-app = FastAPI(title="Recycle Agent API", version="1.0.0")
+app = FastAPI(title="RecycleAgent API", version="1.0.0")
 
 # CORS middleware
 app.add_middleware(
@@ -18,5 +18,5 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "Recycle Agent API is running!"}
+    return {"message": "RecycleAgent API is running!"}
 
