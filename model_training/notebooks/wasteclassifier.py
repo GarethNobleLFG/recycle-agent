@@ -142,17 +142,6 @@ print("Val images count:", count_images(val_dataset))
 print("Test Dataset: ", test_dataset)
 print("Test images count:", count_images(test_dataset))
 
-# Small datasets to use for testing
-# small_train_dataset = train_dataset.take(100)
-# small_augmented_train_dataset = augmented_train_dataset.take(100)
-# small_val_dataset = val_dataset.take(100)
-# small_test_dataset = test_dataset.take(100)
-
-# print("Small train dataset size: ", count_images(small_train_dataset))
-# print("Small augmented train dataset size: ", count_images(small_augmented_train_dataset))
-# print("Small val dataset size: ", count_images(small_val_dataset))
-# print("Small test dataset size: ", count_images(small_test_dataset))
-
 """# Visualize the data"""
 
 import matplotlib.pyplot as plt
