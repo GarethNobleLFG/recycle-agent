@@ -9,6 +9,7 @@ const REGIONAL_DATABASE = {
 export default function App() {
   const [zip, setZip] = useState('');
   const [image, setImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
 
@@ -16,27 +17,41 @@ export default function App() {
     const file = e.target.files[0];
     if (file) {
       setImage(URL.createObjectURL(file));
+      setImageFile(file);
       setAnalysis(null);
     }
   };
 
-  const runSmartAnalysis = () => {
+  const runSmartAnalysis = async () => {
+    if (!imageFile || isProcessing) return;
+
     setIsProcessing(true);
-    // Mock Data
-    setTimeout(() => {
-      setAnalysis({
-        result: "RECYCLE",
-        confidence: 98.4,
-        material: "High-Density Polyethylene",
-        top3: [
-          { label: "PET Plastic", prob: 98.4, color: "bg-emerald-500" },
-          { label: "Mixed Glass", prob: 1.2, color: "bg-blue-500" },
-          { label: "Cellulose", prob: 0.4, color: "bg-zinc-600" }
-        ],
-        stats: { carbon: "2.4kg", water: "15L", energy: "4.2kWh" }
+    try {
+      const formData = new FormData();
+      formData.append('file', imageFile);
+      if (zip) formData.append('zip', zip);
+
+      const res = await fetch('/api/classify', {
+        method: 'POST',
+        body: formData,
       });
+
+      if (!res.ok) {
+        // Keep UX unchanged (no new modals/toasts); just log for now.
+        const text = await res.text();
+        console.error('Classification failed:', res.status, text);
+        setAnalysis(null);
+        return;
+      }
+
+      const data = await res.json();
+      setAnalysis(data);
+    } catch (err) {
+      console.error('Classification request error:', err);
+      setAnalysis(null);
+    } finally {
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -100,7 +115,7 @@ export default function App() {
                       <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
                     </div>
                   )}
-                  <button onClick={() => setImage(null)} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
+                  <button onClick={() => { setImage(null); setImageFile(null); setAnalysis(null); }} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
                 </>
               )}
             </div>

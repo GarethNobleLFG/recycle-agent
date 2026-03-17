@@ -1,5 +1,5 @@
 # Python backend.
 __pycache__
-venv
+.venv
 .env
 /frontend/node_modules
