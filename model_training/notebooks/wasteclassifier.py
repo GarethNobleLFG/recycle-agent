@@ -397,10 +397,6 @@ model = load_model_from_drive("model.keras")
 
 """### Evaluate the model"""
 
-test_model = keras.models.load_model("model.keras")
-test_loss, test_acc = test_model.evaluate(test_dataset)
-print(f"Test accuracy: {test_acc:.3f}")
-
 evaluate_metrics(model, test_dataset, y_test)
 
 plot_confusion_matrix(model, test_dataset, y_test, class_names)
@@ -487,10 +483,6 @@ save_model_to_drive(model, "augmented_model.keras", drive_path="MyDrive/WasteCla
 model = load_model_from_drive("augmented_model.keras")
 
 """### Evaluate the model"""
-
-test_model = keras.models.load_model("augmented_model.keras")
-test_loss, test_acc = test_model.evaluate(test_dataset)
-print(f"Test accuracy: {test_acc:.3f}")
 
 evaluate_metrics(model, test_dataset, y_test)
 
