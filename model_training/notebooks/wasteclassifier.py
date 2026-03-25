@@ -410,3 +410,92 @@ plot_confusion_matrix(model, test_dataset, y_test, class_names)
 plot_predictions_grid(model, test_dataset, class_names, num_images=9)
 
 """## Create data augmented model"""
+
+from tensorflow import keras
+from tensorflow.keras import layers
+
+data_augmentation = keras.Sequential(
+    [
+     layers.RandomFlip("horizontal"),
+     layers.RandomRotation(0.1),
+     layers.RandomZoom(0.2),
+    ]
+)
+
+"""Add augmentation layer and dropout layers"""
+
+from tensorflow import keras
+from tensorflow.keras import layers
+
+inputs = keras.Input(shape=(IMG_SIZE + (3,)))
+x = data_augmentation(inputs)
+x = layers.Rescaling(1./255)(x)
+x = layers.Conv2D(filters=32, kernel_size=3, activation="relu")(x)
+x = layers.MaxPooling2D(pool_size=2)(x)
+x = layers.Conv2D(filters=64, kernel_size=3, activation="relu")(x)
+x = layers.MaxPooling2D(pool_size=2)(x)
+x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x)
+x = layers.MaxPooling2D(pool_size=2)(x)
+x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x)
+x = layers.MaxPooling2D(pool_size=2)(x)
+x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x)
+x = layers.Flatten()(x)
+x = layers.Dropout(0.2)(x)
+outputs = layers.Dense(len(class_names), activation="softmax")(x)
+
+model = keras.Model(inputs=inputs, outputs=outputs)
+
+model.summary()
+
+"""### Compile and train"""
+
+# Choose loss function, optimizer, and metrics
+model.compile(loss="categorical_crossentropy", optimizer="rmsprop", metrics=["accuracy"])
+
+# Callback function to save best model during training
+callbacks = [
+    keras.callbacks.ModelCheckpoint(
+        filepath="augmented_model.keras",
+        save_best_only=True,
+        monitor="val_loss"
+    ),
+    keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True
+    ),
+]
+
+# Train the model with augmentation
+history = model.fit(
+    train_dataset,
+    epochs=30,
+    validation_data=val_dataset,
+    callbacks=callbacks
+)
+
+"""### Display loss curve"""
+
+plot_loss_acc_training(history)
+
+"""### Save the model"""
+
+save_model_to_drive(model, "augmented_model.keras", drive_path="MyDrive/WasteClassifierModels")
+
+"""### Load the model (if needed)"""
+
+model = load_model_from_drive("augmented_model.keras")
+
+"""### Evaluate the model"""
+
+test_model = keras.models.load_model("augmented_model.keras")
+test_loss, test_acc = test_model.evaluate(test_dataset)
+print(f"Test accuracy: {test_acc:.3f}")
+
+evaluate_metrics(model, test_dataset, y_test)
+
+plot_confusion_matrix(model, test_dataset, y_test, class_names)
+
+"""### Plot images with model predictions vs. actual labels"""
+
+plot_predictions_grid(model, test_dataset, class_names, num_images=9)
