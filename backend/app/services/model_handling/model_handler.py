@@ -5,8 +5,8 @@ import tensorflow as tf
 from PIL import Image
 from typing import List, Tuple
 import io
-from ...utils.preprocess_image import preprocess_image_for_model
-from ...utils.string_utils import clean_class_name
+from utils.preprocess_image import preprocess_image_for_model
+from utils.string_utils import clean_class_name
 from .model_init_functions import load_model
 
 # Configure logging

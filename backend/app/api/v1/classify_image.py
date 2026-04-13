@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
-from ...services.classify_image import classify_image
+from services.classify_image import classify_image
 
 router = APIRouter()
 

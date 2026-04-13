@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.v1.classify_image import router as classify_router
+from api.v1.classify_image import router as classify_router
 
 app = FastAPI(title="RecycleAgent API", version="1.0.0")
 
