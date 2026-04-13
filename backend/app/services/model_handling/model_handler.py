@@ -5,8 +5,8 @@ import tensorflow as tf
 from PIL import Image
 from typing import List, Tuple
 import io
-from ..utils.preprocess_image import preprocess_image_for_model
-from ..utils.string_utils import clean_class_name
+from ...utils.preprocess_image import preprocess_image_for_model
+from ...utils.string_utils import clean_class_name
 from .model_init_functions import load_model
 
 # Configure logging
@@ -17,8 +17,9 @@ class WasteClassificationModel:
     # Setup the model with path to .keras file.
     def __init__(self, model_path: str = None):
         if model_path is None:
-            current_dir = os.path.dirname(__file__)  # services/
-            app_dir = os.path.dirname(current_dir)   # app/
+            current_dir = os.path.dirname(__file__)  # services/model_handling/
+            services_dir = os.path.dirname(current_dir)  # services/
+            app_dir = os.path.dirname(services_dir)
             model_path = os.path.join(app_dir, "static", "ConvNeXtLarge.keras")
         
         self.model_path = model_path
@@ -27,7 +28,6 @@ class WasteClassificationModel:
         self.class_names = self._get_class_names() 
         self.input_size = (224, 224) 
                 
-        # Load model on initialization
         # Load model on initialization  
         self.model = load_model(self.model_path)
     
