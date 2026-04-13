@@ -7,6 +7,7 @@ from typing import List, Tuple
 import io
 from ..utils.preprocess_image import preprocess_image_for_model
 from ..utils.string_utils import clean_class_name
+from ..utils.model_downloader import download_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,14 +37,13 @@ class WasteClassificationModel:
         ]
     
     def load_model(self):
-        """Load the Keras model from the specified path."""
+        """Load the Keras model, downloading from Google Drive if needed."""
         try:
-            if not os.path.exists(self.model_path):
-                raise FileNotFoundError(f"Model file not found at {self.model_path}")
+            # Download model if it doesn't exist
+            if not download_model(self.model_path):
+                raise FileNotFoundError(f"Failed to download or find model at {self.model_path}")
             
-            logger.info(f"Loading model from {self.model_path}")
             self.model = tf.keras.models.load_model(self.model_path)
-            logger.info("Model loaded successfully")
             
             # Log model details
             logger.info(f"Model input shape: {self.model.input_shape}")
