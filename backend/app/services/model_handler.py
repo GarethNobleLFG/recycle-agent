@@ -15,12 +15,18 @@ logger = logging.getLogger(__name__)
 
 class WasteClassificationModel:
     # Setup the model with path to .keras file.
-    def __init__(self, model_path: str = "models/ConvNeXtLarge.keras"):
-        self.model_path = model_path
-        self.model = None
-        self.class_names = self._get_class_names()
-        self.input_size = (224, 224)
+    def __init__(self, model_path: str = None):
+        if model_path is None:
+            current_dir = os.path.dirname(__file__)  # services/
+            app_dir = os.path.dirname(current_dir)   # app/
+            model_path = os.path.join(app_dir, "static", "ConvNeXtLarge.keras")
         
+        self.model_path = model_path
+        
+        self.model = None  
+        self.class_names = self._get_class_names() 
+        self.input_size = (224, 224) 
+                
         # Load model on initialization
         self.load_model()
     
