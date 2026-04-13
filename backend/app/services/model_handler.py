@@ -7,7 +7,7 @@ from typing import List, Tuple
 import io
 from ..utils.preprocess_image import preprocess_image_for_model
 from ..utils.string_utils import clean_class_name
-from ..utils.model_downloader import download_model
+from .model_init_functions import load_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,13 +22,14 @@ class WasteClassificationModel:
             model_path = os.path.join(app_dir, "static", "ConvNeXtLarge.keras")
         
         self.model_path = model_path
-        
+
         self.model = None  
         self.class_names = self._get_class_names() 
         self.input_size = (224, 224) 
                 
         # Load model on initialization
-        self.load_model()
+        # Load model on initialization  
+        self.model = load_model(self.model_path)
     
     def _get_class_names(self) -> List[str]:
         return [
@@ -41,23 +42,6 @@ class WasteClassificationModel:
             'plastic_trash_bags', 'plastic_water_bottles', 'shoes', 'steel_food_cans', 
             'styrofoam_cups', 'styrofoam_food_containers', 'tea_bags'
         ]
-    
-    def load_model(self):
-        """Load the Keras model, downloading from Google Drive if needed."""
-        try:
-            # Download model if it doesn't exist
-            if not download_model(self.model_path):
-                raise FileNotFoundError(f"Failed to download or find model at {self.model_path}")
-            
-            self.model = tf.keras.models.load_model(self.model_path)
-            
-            # Log model details
-            logger.info(f"Model input shape: {self.model.input_shape}")
-            logger.info(f"Model output shape: {self.model.output_shape}")
-            
-        except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
-            raise
     
     def predict(self, image_bytes: bytes) -> Tuple[List[str], List[float]]:
         """
