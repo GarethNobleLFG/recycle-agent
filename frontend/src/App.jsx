@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useClassify } from './hooks/classify';
+
 {/* For location-based disposal guidelines, we'll likely end up sending the model's prediction to an LLM like Gemini and let it search and fetch the relevant data.*/}
 const REGIONAL_DATABASE = {
   "90210": { city: "Beverly Hills", instruction: "All plastics 1-7 & glass accepted. Rinse containers." },
@@ -6,12 +8,49 @@ const REGIONAL_DATABASE = {
   "94105": { city: "San Francisco", instruction: "Advanced composting available. No soft plastics." }
 };
 
+// Helper function to map material to category
+const mapToCategory = (material) => {
+  const materialLower = material.toLowerCase();
+  
+  if (materialLower.includes('aluminum') || materialLower.includes('glass') || 
+      materialLower.includes('paper') || materialLower.includes('cardboard') ||
+      materialLower.includes('plastic')) {
+    return 'RECYCLE';
+  } 
+  else if (materialLower.includes('food') || materialLower.includes('coffee') ||
+             materialLower.includes('egg') || materialLower.includes('tea')) {
+    return 'COMPOST';
+  } 
+  else {
+    return 'TRASH';
+  }
+};
+
+// Helper function to calculate mock environmental stats
+const calculateStats = (category, confidence) => {
+  const baseImpact = {
+    'RECYCLE': { carbon: 0.5, water: 5, energy: 0.8 },
+    'COMPOST': { carbon: 0.2, water: 2, energy: 0.3 },
+    'TRASH': { carbon: 2.5, water: 15, energy: 3.5 }
+  };
+  
+  const base = baseImpact[category] || baseImpact['TRASH'];
+  const scale = confidence / 100;
+  
+  return {
+    carbon: `${(base.carbon * scale).toFixed(1)}kg`,
+    water: `${Math.round(base.water * scale)}L`,
+    energy: `${(base.energy * scale).toFixed(1)}kWh`
+  };
+};
+
 export default function App() {
   const [zip, setZip] = useState('');
   const [image, setImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
+  
+  const { classify, isLoading, error, result, reset } = useClassify();
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -19,40 +58,44 @@ export default function App() {
       setImage(URL.createObjectURL(file));
       setImageFile(file);
       setAnalysis(null);
+      reset(); // Clear any previous results
     }
   };
 
   const runSmartAnalysis = async () => {
-    if (!imageFile || isProcessing) return;
+    if (!imageFile || isLoading) return;
 
-    setIsProcessing(true);
     try {
-      const formData = new FormData();
-      formData.append('file', imageFile);
-      if (zip) formData.append('zip', zip);
-
-      const res = await fetch('/api/classify', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        // Keep UX unchanged (no new modals/toasts); just log for now.
-        const text = await res.text();
-        console.error('Classification failed:', res.status, text);
-        setAnalysis(null);
-        return;
-      }
-
-      const data = await res.json();
-      setAnalysis(data);
-    } catch (err) {
-      console.error('Classification request error:', err);
-      setAnalysis(null);
-    } finally {
-      setIsProcessing(false);
+      await classify(imageFile);
+    } 
+    catch (err) {
+      console.error('Classification error:', err);
     }
   };
+
+  // Update analysis when result changes
+  React.useEffect(() => {
+    if (result && result.length > 0) {
+      const topPrediction = result[0];
+      const category = mapToCategory(topPrediction.label);
+      
+      setAnalysis({
+        result: category,
+        material: topPrediction.label,
+        confidence: topPrediction.prob,
+        top3: result,
+        stats: calculateStats(category, topPrediction.prob)
+      });
+    }
+  }, [result]);
+
+  // Log errors (keeping existing UX - no new modals/toasts)
+  React.useEffect(() => {
+    if (error) {
+      console.error('Classification failed:', error);
+      setAnalysis(null);
+    }
+  }, [error]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans p-6 overflow-hidden flex flex-col">
@@ -109,22 +152,22 @@ export default function App() {
               ) : (
                 <>
                   <img src={image} className="w-full h-full object-cover opacity-80" alt="Target" />
-                  {isProcessing && (
+                  {isLoading && (
                     <div className="absolute inset-0 z-10">
                       <div className="h-1 bg-emerald-500 shadow-[0_0_20px_#10b981] absolute w-full animate-[scan_2s_infinite]" />
                       <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
                     </div>
                   )}
-                  <button onClick={() => { setImage(null); setImageFile(null); setAnalysis(null); }} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
+                  <button onClick={() => { setImage(null); setImageFile(null); setAnalysis(null); reset(); }} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
                 </>
               )}
             </div>
             <button 
               onClick={runSmartAnalysis}
-              disabled={!image || isProcessing}
+              disabled={!image || isLoading}
               className="w-full mt-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-20 active:scale-[0.98]"
             >
-              {isProcessing ? "Analyzing..." : "Classify Material"}
+              {isLoading ? "Analyzing..." : "Classify Material"}
             </button>
           </div>
         </div>
@@ -186,7 +229,7 @@ export default function App() {
 
       <footer className="mt-6 flex justify-center items-center text-[10px] font-black text-zinc-600 uppercase tracking-widest gap-8">
          <p>Neural Core v1.0</p>
-         <p>scikit-learn</p>
+         <p>TensorFlow</p>
          <p>FastAPI</p>
       </footer>
 
