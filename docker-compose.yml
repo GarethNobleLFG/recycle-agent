@@ -6,12 +6,15 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - PORT=5000
       - HOST=0.0.0.0
       - DEBUG=true
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
     volumes:
-      - ./backend:/app
+      - ./backend/app:/app
     command: uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+    env_file:
+      - .env
 
   frontend:
     build:
@@ -21,9 +24,11 @@ services:
       - "5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_API_PROXY_TARGET=http://backend:5000
+      - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend
+    env_file:
+      - .env

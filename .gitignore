@@ -3,3 +3,6 @@ __pycache__
 .venv
 .env
 /frontend/node_modules
+venv
+ConvNeXtLarge.keras
+*.kerash*

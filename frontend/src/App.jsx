@@ -1,17 +1,56 @@
 import React, { useState } from 'react';
-{/* For location-based disposal guidelines, we'll likely end up sending the model's prediction to an LLM like Gemini and let it search and fetch the relevant data.*/}
+import { useClassify } from './hooks/classify';
+
+{/* For location-based disposal guidelines, we'll likely end up sending the model's prediction to an LLM like Gemini and let it search and fetch the relevant data.*/ }
 const REGIONAL_DATABASE = {
   "90210": { city: "Beverly Hills", instruction: "All plastics 1-7 & glass accepted. Rinse containers." },
   "10001": { city: "New York", instruction: "Metal and rigid plastics only. Bundle paper separately." },
   "94105": { city: "San Francisco", instruction: "Advanced composting available. No soft plastics." }
 };
 
+// Helper function to map material to category
+const mapToCategory = (material) => {
+  const materialLower = material.toLowerCase();
+
+  if (materialLower.includes('aluminum') || materialLower.includes('glass') ||
+    materialLower.includes('paper') || materialLower.includes('cardboard') ||
+    materialLower.includes('plastic')) {
+    return 'RECYCLE';
+  }
+  else if (materialLower.includes('food') || materialLower.includes('coffee') ||
+    materialLower.includes('egg') || materialLower.includes('tea')) {
+    return 'COMPOST';
+  }
+  else {
+    return 'TRASH';
+  }
+};
+
+// Helper function to calculate mock environmental stats
+const calculateStats = (category, confidence) => {
+  const baseImpact = {
+    'RECYCLE': { carbon: 0.5, water: 5, energy: 0.8 },
+    'COMPOST': { carbon: 0.2, water: 2, energy: 0.3 },
+    'TRASH': { carbon: 2.5, water: 15, energy: 3.5 }
+  };
+
+  const base = baseImpact[category] || baseImpact['TRASH'];
+  const scale = confidence / 100;
+
+  return {
+    carbon: `${(base.carbon * scale).toFixed(1)}kg`,
+    water: `${Math.round(base.water * scale)}L`,
+    energy: `${(base.energy * scale).toFixed(1)}kWh`
+  };
+};
+
 export default function App() {
   const [zip, setZip] = useState('');
   const [image, setImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
+
+  const { classify, isLoading, error, result, reset } = useClassify();
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -19,40 +58,44 @@ export default function App() {
       setImage(URL.createObjectURL(file));
       setImageFile(file);
       setAnalysis(null);
+      reset(); // Clear any previous results
     }
   };
 
   const runSmartAnalysis = async () => {
-    if (!imageFile || isProcessing) return;
+    if (!imageFile || isLoading) return;
 
-    setIsProcessing(true);
     try {
-      const formData = new FormData();
-      formData.append('file', imageFile);
-      if (zip) formData.append('zip', zip);
-
-      const res = await fetch('/api/classify', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        // Keep UX unchanged (no new modals/toasts); just log for now.
-        const text = await res.text();
-        console.error('Classification failed:', res.status, text);
-        setAnalysis(null);
-        return;
-      }
-
-      const data = await res.json();
-      setAnalysis(data);
-    } catch (err) {
-      console.error('Classification request error:', err);
-      setAnalysis(null);
-    } finally {
-      setIsProcessing(false);
+      await classify(imageFile);
+    }
+    catch (err) {
+      console.error('Classification error:', err);
     }
   };
+
+  // Update analysis when result changes
+  React.useEffect(() => {
+    if (result && result.length > 0) {
+      const topPrediction = result[0];
+      const category = mapToCategory(topPrediction.label);
+
+      setAnalysis({
+        result: category,
+        material: topPrediction.label,
+        confidence: topPrediction.prob,
+        top3: result,
+        stats: calculateStats(category, topPrediction.prob)
+      });
+    }
+  }, [result]);
+
+  // Log errors (keeping existing UX - no new modals/toasts)
+  React.useEffect(() => {
+    if (error) {
+      console.error('Classification failed:', error);
+      setAnalysis(null);
+    }
+  }, [error]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans p-6 overflow-hidden flex flex-col">
@@ -78,11 +121,11 @@ export default function App() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-zinc-900/80 border border-zinc-800 px-4 py-2.5 rounded-xl flex items-center gap-4 shadow-2xl">
           <div className="flex flex-col">
             <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest leading-none mb-1">Regional Node</span>
-            <input 
+            <input
               className="bg-transparent border-none p-0 focus:ring-0 text-sm font-mono text-emerald-400 w-24 placeholder:text-zinc-800"
               placeholder="SET ZIP" value={zip} onChange={(e) => setZip(e.target.value)}
             />
@@ -101,7 +144,7 @@ export default function App() {
               {!image ? (
                 <label className="cursor-pointer text-center p-10">
                   <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                    <svg className="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg className="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </div>
                   <p className="font-bold text-zinc-300">Upload Photo</p>
                   <input type="file" className="hidden" onChange={handleFileUpload} />
@@ -109,22 +152,22 @@ export default function App() {
               ) : (
                 <>
                   <img src={image} className="w-full h-full object-cover opacity-80" alt="Target" />
-                  {isProcessing && (
+                  {isLoading && (
                     <div className="absolute inset-0 z-10">
                       <div className="h-1 bg-emerald-500 shadow-[0_0_20px_#10b981] absolute w-full animate-[scan_2s_infinite]" />
                       <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
                     </div>
                   )}
-                  <button onClick={() => { setImage(null); setImageFile(null); setAnalysis(null); }} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
+                  <button onClick={() => { setImage(null); setImageFile(null); setAnalysis(null); reset(); }} className="absolute top-4 right-4 bg-black/60 px-3 py-1.5 rounded-md text-[10px] font-bold border border-white/10 backdrop-blur-md hover:bg-red-900/40 transition">REMOVE</button>
                 </>
               )}
             </div>
-            <button 
+            <button
               onClick={runSmartAnalysis}
-              disabled={!image || isProcessing}
+              disabled={!image || isLoading}
               className="w-full mt-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-20 active:scale-[0.98]"
             >
-              {isProcessing ? "Analyzing..." : "Classify Material"}
+              {isLoading ? "Analyzing..." : "Classify Material"}
             </button>
           </div>
         </div>
@@ -140,57 +183,58 @@ export default function App() {
                   <p className="text-zinc-400 text-sm font-medium border-l-2 border-emerald-500 pl-4">{analysis.material}</p>
                 </div>
                 <div className="mt-auto pt-8 flex gap-4">
-                   <div className="flex-1 bg-zinc-800/30 p-4 rounded-2xl border border-zinc-800 text-center">
-                      <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Carbon Saved</p>
-                      <p className="text-xl font-bold">{analysis.stats.carbon}</p>
-                   </div>
-                   <div className="flex-1 bg-zinc-800/30 p-4 rounded-2xl border border-zinc-800 text-center">
-                      <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">AI Confidence</p>
-                      <p className="text-xl font-bold text-emerald-500">{analysis.confidence}%</p>
-                   </div>
+                  <div className="flex-1 bg-zinc-800/30 p-4 rounded-2xl border border-zinc-800 text-center">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Carbon Saved</p>
+                    <p className="text-xl font-bold">{analysis.stats.carbon}</p>
+                  </div>
+                  <div className="flex-1 bg-zinc-800/30 p-4 rounded-2xl border border-zinc-800 text-center">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">AI Confidence</p>
+                    <p className="text-xl font-bold text-emerald-500">{analysis.confidence}%</p>
+                  </div>
                 </div>
               </div>
 
               <div className="col-span-2 md:col-span-1 space-y-6">
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 h-1/2">
-                   <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6">Top-3 Predictions</h3>
-                   <div className="space-y-5">
-                      {analysis.top3.map((item, i) => (
-                        <div key={i} className="space-y-2">
-                           <div className="flex justify-between text-xs font-bold font-mono uppercase">
-                              <span className="text-zinc-400">{item.label}</span>
-                              <span className="text-emerald-500">{item.prob}%</span>
-                           </div>
-                           <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-                              <div className={`h-full ${item.color} transition-all duration-[2s]`} style={{ width: `${item.prob}%` }} />
-                           </div>
+                  <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6">Top-3 Predictions</h3>
+                  <div className="space-y-5">
+                    {analysis.top3.map((item, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between text-xs font-bold font-mono uppercase">
+                          <span className="text-zinc-400">{item.label}</span>
+                          <span className="text-emerald-500">{item.prob}%</span>
                         </div>
-                      ))}
-                   </div>
+                        <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 transition-all duration-[2s]" style={{ width: `${item.prob}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="bg-emerald-500 text-black rounded-3xl p-8 h-[calc(50%-1.5rem)] flex flex-col justify-center shadow-xl">
-                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">Location-Based Rules</h3>
-                   <p className="text-2xl font-black leading-tight">
-                     {REGIONAL_DATABASE[zip]?.instruction || "Standard disposal rules apply. Provide zip code for localized guidance."}
-                   </p>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">Location-Based Rules</h3>
+                  <p className="text-2xl font-black leading-tight">
+                    {REGIONAL_DATABASE[zip]?.instruction || "Standard disposal rules apply. Provide zip code for localized guidance."}
+                  </p>
                 </div>
               </div>
             </div>
           ) : (
             <div className="h-full bg-zinc-900/20 border border-dashed border-zinc-800 rounded-[2.5rem] flex items-center justify-center text-zinc-700">
-               <p className="text-sm font-black uppercase tracking-[0.2em]">Ready for Analysis</p>
+              <p className="text-sm font-black uppercase tracking-[0.2em]">Ready for Analysis</p>
             </div>
           )}
         </div>
       </main>
 
       <footer className="mt-6 flex justify-center items-center text-[10px] font-black text-zinc-600 uppercase tracking-widest gap-8">
-         <p>Neural Core v1.0</p>
-         <p>scikit-learn</p>
-         <p>FastAPI</p>
+        <p>Neural Core v1.0</p>
+        <p>TensorFlow</p>
+        <p>FastAPI</p>
       </footer>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes scan { 0%, 100% { top: 0% } 50% { top: 100% } }
       `}} />
     </div>
