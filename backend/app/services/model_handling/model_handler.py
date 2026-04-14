@@ -80,13 +80,11 @@ class WasteClassificationModel:
         classes, probabilities = self.predict(image_bytes)
         
         predictions = []
-        colors = ["bg-emerald-500", "bg-blue-500", "bg-zinc-600", "bg-gray-400", "bg-yellow-500"]
         
         for i in range(min(top_k, len(classes))):
             predictions.append({
                 "label": clean_class_name(classes[i]),
                 "prob": round(probabilities[i], 1),
-                "color": colors[i % len(colors)]
             })
         
         return predictions
