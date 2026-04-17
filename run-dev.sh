@@ -5,6 +5,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
+
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 BACKEND_PORT="${BACKEND_PORT:-5000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
@@ -154,7 +161,7 @@ if ! backend_deps_installed; then
 fi
 
 (
-  cd "$BACKEND_DIR"
+  cd "$BACKEND_DIR/app"
   exec "$PYTHON_BIN" -m uvicorn main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" --reload
 ) &
 backend_pid=$!

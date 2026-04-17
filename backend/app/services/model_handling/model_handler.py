@@ -20,7 +20,7 @@ class WasteClassificationModel:
             current_dir = os.path.dirname(__file__)  # services/model_handling/
             services_dir = os.path.dirname(current_dir)  # services/
             app_dir = os.path.dirname(services_dir)
-            model_path = os.path.join(app_dir, "static", "ConvNeXtLarge.keras")
+            model_path = os.path.join(app_dir, "static", "ConvNeXtTiny.keras")
         
         self.model_path = model_path
 
@@ -32,15 +32,16 @@ class WasteClassificationModel:
         self.model = load_model(self.model_path)
     
     def _get_class_names(self) -> List[str]:
+        """Used to be 30 classes but"""
         return [
-            'aerosol_cans', 'aluminum_food_cans', 'aluminum_soda_cans', 'cardboard_boxes', 
-            'cardboard_packaging', 'clothing', 'coffee_grounds', 'disposable_plastic_cutlery', 
-            'eggshells', 'food_waste', 'glass_beverage_bottles', 'glass_cosmetic_containers', 
-            'glass_food_jars', 'magazines', 'newspaper', 'office_paper', 'paper_cups', 
-            'plastic_cup_lids', 'plastic_detergent_bottles', 'plastic_food_containers', 
-            'plastic_shopping_bags', 'plastic_soda_bottles', 'plastic_straws', 
-            'plastic_trash_bags', 'plastic_water_bottles', 'shoes', 'steel_food_cans', 
-            'styrofoam_cups', 'styrofoam_food_containers', 'tea_bags'
+            'aerosol_cans', 'cardboard', 'clothing', 'coffee_grounds',
+            'disposable_cups', 'disposable_plastic_cutlery', 'eggshells',
+            'food_waste', 'glass_containers', 'magazines', 'metal_cans',
+            'newspaper', 'office_paper', 'plastic_beverage_bottles',
+            'plastic_cup_lids', 'plastic_detergent_bottles',
+            'plastic_food_containers', 'plastic_shopping_bags',
+            'plastic_straws', 'plastic_trash_bags', 'shoes',
+            'styrofoam_food_containers', 'tea_bags',
         ]
     
     def predict(self, image_bytes: bytes) -> Tuple[List[str], List[float]]:
