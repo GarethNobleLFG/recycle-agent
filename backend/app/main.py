@@ -2,7 +2,9 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from api.v1.classify_image import router as classify_router
+from api.v1.zipcode_rules import router as zipcode_rules_router
 
 # Load .env from the project root (two levels up from backend/app/)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -24,3 +26,4 @@ async def root():
 
 # Include the classification API routes
 app.include_router(classify_router, prefix="/v1", tags=["classification"])
+app.include_router(zipcode_rules_router, prefix="/v1", tags=["zipcode-rules"])

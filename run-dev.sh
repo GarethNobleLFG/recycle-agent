@@ -1,6 +1,5 @@
-#!/usr/bin/env bash
 
-set -euo pipefail
+#!/usr/bin/env bash
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
@@ -140,7 +139,15 @@ detect_python() {
 }
 
 require_cmd npm
-PYTHON_BIN="$(detect_python)"
+
+# Ensure backend virtual environment exists
+if [[ ! -x "$BACKEND_DIR/.venv/bin/python" ]]; then
+  print_info "Creating Python virtual environment for backend..."
+  (cd "$BACKEND_DIR" && python3 -m venv .venv)
+  print_success "Backend virtual environment created."
+fi
+
+PYTHON_BIN="$BACKEND_DIR/.venv/bin/python"
 
 if ! frontend_deps_installed; then
   print_info "Installing frontend dependencies..."
@@ -156,13 +163,13 @@ if ! backend_deps_installed; then
   (
     cd "$BACKEND_DIR"
     "$PYTHON_BIN" -m pip install --quiet -r requirements.txt
-  ) >/dev/null 2>&1
+  )
   print_success "Backend dependencies ready."
 fi
 
 (
-  cd "$BACKEND_DIR/app"
-  exec "$PYTHON_BIN" -m uvicorn main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" --reload
+  cd "$BACKEND_DIR"
+  PYTHONPATH="$BACKEND_DIR:$BACKEND_DIR/app" exec "$PYTHON_BIN" -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" --reload
 ) &
 backend_pid=$!
 
