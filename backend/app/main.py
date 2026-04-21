@@ -1,6 +1,11 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.classify_image import router as classify_router
+
+# Load .env from the project root (two levels up from backend/app/)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 app = FastAPI(title="RecycleAgent API", version="1.0.0")
 
