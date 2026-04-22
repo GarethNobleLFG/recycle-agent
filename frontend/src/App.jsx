@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useClassify } from './hooks/classify';
+import { useZipcodeRules } from './hooks/zipcodeRules';
 
 {/* For location-based disposal guidelines, we'll likely end up sending the model's prediction to an LLM like Gemini and let it search and fetch the relevant data.*/ }
 const REGIONAL_DATABASE = {
@@ -346,6 +347,7 @@ export default function App() {
   const pendingResultRef = React.useRef(null);
 
   const { classify, isLoading, error, result, reset } = useClassify();
+  const { fetchRules, isLoading: isZipLoading, error: zipError, rules } = useZipcodeRules();
 
   // Minimum scan duration in ms — matches one full pass of the scan animation
   const MIN_SCAN_DURATION = 5000;
@@ -385,9 +387,16 @@ export default function App() {
 
     setTimeout(() => {
       if (pendingResultRef.current) {
-        setAnalysis(pendingResultRef.current);
+        if (zip.length === 5) {
+          // Fetch rules first — results will show when rules arrive
+          fetchRules(zip, pendingResultRef.current.material);
+        } else {
+          setAnalysis(pendingResultRef.current);
+          setIsScanning(false);
+        }
+      } else {
+        setIsScanning(false);
       }
-      setIsScanning(false);
     }, remaining);
   };
 
@@ -415,6 +424,21 @@ export default function App() {
       pendingResultRef.current = null;
     }
   }, [error]);
+
+  // When rules finish loading during a scan, reveal results
+  React.useEffect(() => {
+    if (!isZipLoading && rules !== null && pendingResultRef.current && isScanning) {
+      setAnalysis(pendingResultRef.current);
+      setIsScanning(false);
+    }
+  }, [isZipLoading, rules]);
+
+  // Re-fetch rules if user changes zip after results are already shown
+  React.useEffect(() => {
+    if (zip.length === 5 && analysis?.material) {
+      fetchRules(zip, analysis.material);
+    }
+  }, [zip]);
 
   return (
     <div
@@ -811,7 +835,7 @@ export default function App() {
                     className="text-xl font-light leading-snug text-zinc-900"
                     style={{ fontFamily: 'ui-serif, Georgia, serif' }}
                   >
-                    {REGIONAL_DATABASE[zip]?.instruction || "Enter a zip code for locale-specific disposal guidance."}
+                    {zipError ? zipError : (rules || "Enter a zip code for locale-specific disposal guidance.")}
                   </p>
                 </div>
               </div>
